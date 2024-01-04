@@ -43,6 +43,35 @@ namespace impl {
     using  vuint16mf8_t = vuint16mf4_t;
     using   vint16mf8_t =  vint16mf4_t;
 
+    using  vbool8mf8_t = vbool64_t;
+    using vbool16mf8_t = vbool64_t;
+    using vbool32mf8_t = vbool64_t;
+    using vbool64mf8_t = vbool64_t;
+    using  vbool8mf4_t = vbool32_t;
+    using vbool16mf4_t = vbool64_t;
+    using vbool32mf4_t = vbool64_t;
+    using vbool64mf4_t = vbool64_t;
+    using  vbool8mf2_t = vbool16_t;
+    using vbool16mf2_t = vbool32_t;
+    using vbool32mf2_t = vbool64_t;
+    using vbool64mf2_t = vbool64_t;
+    using  vbool8m1_t  = vbool8_t;
+    using vbool16m1_t = vbool16_t;
+    using vbool32m1_t = vbool32_t;
+    using vbool64m1_t = vbool64_t;
+    using  vbool8m2_t =  vbool4_t;
+    using vbool16m2_t =  vbool8_t;
+    using vbool32m2_t = vbool16_t;
+    using vbool64m2_t = vbool32_t;
+    using  vbool8m4_t =  vbool2_t;
+    using vbool16m4_t =  vbool4_t;
+    using vbool32m4_t =  vbool8_t;
+    using vbool64m4_t = vbool16_t;
+    using  vbool8m8_t =  vbool1_t;
+    using vbool16m8_t =  vbool2_t;
+    using vbool32m8_t =  vbool4_t;
+    using vbool64m8_t =  vbool8_t;
+
 #define  TC_XMACRO8(X, M)                   X( u8##M, 8,M) X( i8##M, 8,M)
 #if defined __riscv_zvfh
 #define TC_XMACRO16(X, M)  TC_XMACRO8(X, M) X(u16##M,16,M) X(i16##M,16,M) X(f16##M,16,M)
@@ -69,6 +98,19 @@ namespace impl {
         using u64##m =  vuint64##m##_t;  \
         using i64##m =   vint64##m##_t;  \
         using f64##m = vfloat64##m##_t;
+#define VBOOL_CAT(m) \
+        using  u8##m =   vbool8##m##_t;  \
+        using  i8##m =   vbool8##m##_t;  \
+      /*using  f8##m =   vbool8##m##_t;*/\
+        using u16##m =  vbool16##m##_t;  \
+        using i16##m =  vbool16##m##_t;  \
+        using f16##m =  vbool16##m##_t;  \
+        using u32##m =  vbool32##m##_t;  \
+        using i32##m =  vbool32##m##_t;  \
+        using f32##m =  vbool32##m##_t;  \
+        using u64##m =  vbool64##m##_t;  \
+        using i64##m =  vbool64##m##_t;  \
+        using f64##m =  vbool64##m##_t;
 #define SCALAR_CAT(m) \
         using  u8##m =    uint8_t;  \
         using  i8##m =     int8_t;  \
@@ -110,6 +152,7 @@ namespace impl {
 #endif
 
         struct v { LMUL_XMACRO(VECTOR_CAT) };
+        struct b { LMUL_XMACRO(VBOOL_CAT) };
         struct s { LMUL_XMACRO(SCALAR_CAT) };
         struct m { LMUL_XMACRO(LMUL_CAT) };
     };
@@ -119,6 +162,39 @@ namespace impl {
 #undef SCALAR_CAT
 #undef VECTOR_CAT
 #undef LMUL_CAT
+
+    // Deduce LMUL from vbool/type
+    template <typename T, std::size_t b> struct vbool2lmul;
+    template<> struct vbool2lmul< vbool1_t,  8>  { static constexpr LMUL value = LMUL_m8; };
+  /*template<> struct vbool2lmul< vbool1_t, 16>  { static constexpr LMUL value = LMUL_m16; };*/
+  /*template<> struct vbool2lmul< vbool1_t, 32>  { static constexpr LMUL value = LMUL_m32; };*/
+  /*template<> struct vbool2lmul< vbool1_t, 64>  { static constexpr LMUL value = LMUL_m64; };*/
+    template<> struct vbool2lmul< vbool2_t,  8>  { static constexpr LMUL value = LMUL_m4; };
+    template<> struct vbool2lmul< vbool2_t, 16>  { static constexpr LMUL value = LMUL_m8; };
+  /*template<> struct vbool2lmul< vbool2_t, 32>  { static constexpr LMUL value = LMUL_m16; };*/
+  /*template<> struct vbool2lmul< vbool2_t, 64>  { static constexpr LMUL value = LMUL_m32; };*/
+    template<> struct vbool2lmul< vbool4_t,  8>  { static constexpr LMUL value = LMUL_m2; };
+    template<> struct vbool2lmul< vbool4_t, 16>  { static constexpr LMUL value = LMUL_m4; };
+    template<> struct vbool2lmul< vbool4_t, 32>  { static constexpr LMUL value = LMUL_m8; };
+  /*template<> struct vbool2lmul< vbool4_t, 64>  { static constexpr LMUL value = LMUL_m16; };*/
+    template<> struct vbool2lmul< vbool8_t,  8>  { static constexpr LMUL value = LMUL_m1; };
+    template<> struct vbool2lmul< vbool8_t, 16>  { static constexpr LMUL value = LMUL_m2; };
+    template<> struct vbool2lmul< vbool8_t, 32>  { static constexpr LMUL value = LMUL_m4; };
+    template<> struct vbool2lmul< vbool8_t, 64>  { static constexpr LMUL value = LMUL_m8; };
+    template<> struct vbool2lmul<vbool16_t,  8>  { static constexpr LMUL value = LMUL_mf2; };
+    template<> struct vbool2lmul<vbool16_t, 16>  { static constexpr LMUL value = LMUL_m1; };
+    template<> struct vbool2lmul<vbool16_t, 32>  { static constexpr LMUL value = LMUL_m2; };
+    template<> struct vbool2lmul<vbool16_t, 64>  { static constexpr LMUL value = LMUL_m4; };
+    template<> struct vbool2lmul<vbool32_t,  8>  { static constexpr LMUL value = LMUL_mf4; };
+    template<> struct vbool2lmul<vbool32_t, 16>  { static constexpr LMUL value = LMUL_mf2; };
+    template<> struct vbool2lmul<vbool32_t, 32>  { static constexpr LMUL value = LMUL_m1; };
+    template<> struct vbool2lmul<vbool32_t, 64>  { static constexpr LMUL value = LMUL_m2; };
+    template<> struct vbool2lmul<vbool64_t , 8>  { static constexpr LMUL value = LMUL_mf8; };
+    template<> struct vbool2lmul<vbool64_t, 16>  { static constexpr LMUL value = LMUL_mf4; };
+    template<> struct vbool2lmul<vbool64_t, 32>  { static constexpr LMUL value = LMUL_mf2; };
+    template<> struct vbool2lmul<vbool64_t, 64>  { static constexpr LMUL value = LMUL_m1; };
+    template <typename T, typename U>
+    inline constexpr LMUL vbool2lmul_v = vbool2lmul<std::remove_reference_t<T>, sizeof(U) * 8>::value;
 
     template <typename T, LMUL m /*, std::enable_if_t<std::is_fundamental_v<T>, bool> = true*/ >
     struct rv_meta_base : public std::numeric_limits<T> {
@@ -157,6 +233,11 @@ namespace impl {
     template<> struct narrow<float>    { using type = float16_t; };
     template<> struct narrow<double>   { using type = float; };
 
+    // Note that there are no widen/narrow for vbool*, because it's not clear
+    // if we're increasing LMUL (reducing vbool's index), widening the type
+    // it's masking (increasing vbool's index), or both (not changing vbool's
+    // index).
+
     inline constexpr LMUL widen_lmul(LMUL x) {
         return int(x) < int(LMUL_m8) ? LMUL(int(x) + 1) : (throw "out-of-bounds lmul");
     }
@@ -171,7 +252,7 @@ namespace impl {
     struct narrow<rv_meta<T, m> > { using type = rv_meta<typename narrow<typename rv_meta<T, m>::lane_type>::type, narrow_lmul(rv_meta<T, m>::lmul)>; };
 
 #define RV_META(T,S,M) \
-        template <> struct rv_meta<tc::s::T, tc::m::T> : public rv_meta_base<tc::s::T, tc::m::T> { using reg_type = tc::v::T; };
+        template <> struct rv_meta<tc::s::T, tc::m::T> : public rv_meta_base<tc::s::T, tc::m::T> { using reg_type = tc::v::T; using mask_type = tc::b::T; };
 #define RV_META_REV(T,S,M) \
         template <> struct rv_meta<tc::v::T,  LMUL_m1> : public rv_meta<tc::s::T, tc::m::T> {};
     TC_XMACRO_SQUARE(RV_META)
@@ -189,6 +270,7 @@ template <typename T, LMUL m = LMUL_m1> inline constexpr LMUL rv_lmul_v = impl::
 // Using rv_lane_t and rv_lmul_v here ensures that rv_meta arguments are
 // dereferenced through vector register type overloads:
 template <typename T, LMUL m = LMUL_m1> using rv_meta = impl::rv_meta<rv_lane_t<T, m>, rv_lmul_v<T, m>>;
+template <typename T, typename Tbool> using rv_bmeta = rv_meta<T, impl::vbool2lmul_v<Tbool, T> >;
 
 template <typename T> using widen_t = typename impl::widen<std::remove_reference_t<T>>::type;
 template <typename T> using narrow_t = typename impl::narrow<std::remove_reference_t<T>>::type;
