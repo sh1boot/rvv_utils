@@ -308,23 +308,104 @@ TC_XMACRO_SQUARE(RV_VLTYPE)
 template <typename T, LMUL m = LMUL_m1>
 inline VLType<T, m> rv_setvl(std::size_t avl) {
     static_assert(rv_meta<T, m>::min_lanes >= 1, "can't set LMUL that low");
-    if (avl > 65536) avl = 65536;  // to avoid overflow
-    static constexpr std::size_t sz = sizeof(T);
-    switch (m) {
-    case LMUL_mf8: return __riscv_vsetvl_e8mf8(avl * sz) / sz;
-    case LMUL_mf4: return __riscv_vsetvl_e8mf4(avl * sz) / sz;
-    case LMUL_mf2: return __riscv_vsetvl_e8mf2(avl * sz) / sz;
-    case LMUL_m1: return __riscv_vsetvl_e8m1(avl * sz) / sz;
-    case LMUL_m2: return __riscv_vsetvl_e8m2(avl * sz) / sz;
-    case LMUL_m4: return __riscv_vsetvl_e8m4(avl * sz) / sz;
-    case LMUL_m8: return __riscv_vsetvl_e8m8(avl * sz) / sz;
+    if (int(m) < 0 && sizeof(T) << -int(m) > 8)
+        if (avl > 65536) avl = 65536;  // to avoid overflow
+    switch (sizeof(T)) {
+    case 1:
+        switch (m) {
+        case LMUL_mf8: return __riscv_vsetvl_e8mf8(avl);
+        case LMUL_mf4: return __riscv_vsetvl_e8mf4(avl);
+        case LMUL_mf2: return __riscv_vsetvl_e8mf2(avl);
+        case LMUL_m1:  return __riscv_vsetvl_e8m1 (avl);
+        case LMUL_m2:  return __riscv_vsetvl_e8m2 (avl);
+        case LMUL_m4:  return __riscv_vsetvl_e8m4 (avl);
+        case LMUL_m8:  return __riscv_vsetvl_e8m8 (avl);
+        }
+    case 2:
+        switch (m) {
+        case LMUL_mf8: return __riscv_vsetvl_e16mf4(avl * 2) / 2;
+        case LMUL_mf4: return __riscv_vsetvl_e16mf4(avl);
+        case LMUL_mf2: return __riscv_vsetvl_e16mf2(avl);
+        case LMUL_m1:  return __riscv_vsetvl_e16m1 (avl);
+        case LMUL_m2:  return __riscv_vsetvl_e16m2 (avl);
+        case LMUL_m4:  return __riscv_vsetvl_e16m4 (avl);
+        case LMUL_m8:  return __riscv_vsetvl_e16m8 (avl);
+        }
+    case 4:
+        switch (m) {
+        case LMUL_mf8: return __riscv_vsetvl_e32mf2(avl * 4) / 4;
+        case LMUL_mf4: return __riscv_vsetvl_e32mf2(avl * 2) / 2;
+        case LMUL_mf2: return __riscv_vsetvl_e32mf2(avl);
+        case LMUL_m1:  return __riscv_vsetvl_e32m1 (avl);
+        case LMUL_m2:  return __riscv_vsetvl_e32m2 (avl);
+        case LMUL_m4:  return __riscv_vsetvl_e32m4 (avl);
+        case LMUL_m8:  return __riscv_vsetvl_e32m8 (avl);
+        }
+    case 8:
+        switch (m) {
+        case LMUL_mf8: return __riscv_vsetvl_e64m1 (avl * 8) / 8;
+        case LMUL_mf4: return __riscv_vsetvl_e64m1 (avl * 4) / 4;
+        case LMUL_mf2: return __riscv_vsetvl_e64m1 (avl * 2) / 2;
+        case LMUL_m1:  return __riscv_vsetvl_e64m1 (avl);
+        case LMUL_m2:  return __riscv_vsetvl_e64m2 (avl);
+        case LMUL_m4:  return __riscv_vsetvl_e64m4 (avl);
+        case LMUL_m8:  return __riscv_vsetvl_e64m8 (avl);
+        }
     }
 }
 
-#define RV_SETVL(T,S,M) \
-        template <> VLType<impl::tc::s::T, impl::tc::m::T> rv_setvl<impl::tc::s::T, impl::tc::m::T>(std::size_t avl) { return __riscv_vsetvl_e##S##M(avl); }
-TC_XMACRO(RV_SETVL)
-#undef RV_SETVL
+template <typename T, LMUL m = LMUL_m1>
+inline VLType<T, m> rv_setvlmax() {
+    static_assert(rv_meta<T, m>::min_lanes >= 1, "can't set LMUL that low");
+    switch (sizeof(T)) {
+    case 1:
+        switch (m) {
+        case LMUL_mf8: return __riscv_vsetvlmax_e8mf8();
+        case LMUL_mf4: return __riscv_vsetvlmax_e8mf4();
+        case LMUL_mf2: return __riscv_vsetvlmax_e8mf2();
+        case LMUL_m1:  return __riscv_vsetvlmax_e8m1 ();
+        case LMUL_m2:  return __riscv_vsetvlmax_e8m2 ();
+        case LMUL_m4:  return __riscv_vsetvlmax_e8m4 ();
+        case LMUL_m8:  return __riscv_vsetvlmax_e8m8 ();
+        }
+    case 2:
+        switch (m) {
+        case LMUL_mf8: return __riscv_vsetvlmax_e16mf4() / 2;
+        case LMUL_mf4: return __riscv_vsetvlmax_e16mf4();
+        case LMUL_mf2: return __riscv_vsetvlmax_e16mf2();
+        case LMUL_m1:  return __riscv_vsetvlmax_e16m1 ();
+        case LMUL_m2:  return __riscv_vsetvlmax_e16m2 ();
+        case LMUL_m4:  return __riscv_vsetvlmax_e16m4 ();
+        case LMUL_m8:  return __riscv_vsetvlmax_e16m8 ();
+        }
+    case 4:
+        switch (m) {
+        case LMUL_mf8: return __riscv_vsetvlmax_e32mf2() / 4;
+        case LMUL_mf4: return __riscv_vsetvlmax_e32mf2() / 2;
+        case LMUL_mf2: return __riscv_vsetvlmax_e32mf2();
+        case LMUL_m1:  return __riscv_vsetvlmax_e32m1 ();
+        case LMUL_m2:  return __riscv_vsetvlmax_e32m2 ();
+        case LMUL_m4:  return __riscv_vsetvlmax_e32m4 ();
+        case LMUL_m8:  return __riscv_vsetvlmax_e32m8 ();
+        }
+    case 8:
+        switch (m) {
+        case LMUL_mf8: return __riscv_vsetvlmax_e64m1 () / 8;
+        case LMUL_mf4: return __riscv_vsetvlmax_e64m1 () / 4;
+        case LMUL_mf2: return __riscv_vsetvlmax_e64m1 () / 2;
+        case LMUL_m1:  return __riscv_vsetvlmax_e64m1 ();
+        case LMUL_m2:  return __riscv_vsetvlmax_e64m2 ();
+        case LMUL_m4:  return __riscv_vsetvlmax_e64m4 ();
+        case LMUL_m8:  return __riscv_vsetvlmax_e64m8 ();
+        }
+    }
+}
+
+template <typename Reg, typename T = rv_lane_t<Reg>, LMUL m = rv_lmul_v<Reg>>
+inline VLType<T, m> rv_size(Reg) { return rv_setvlmax<T, m>(); }
+
+template <typename Reg, typename T = rv_lane_t<Reg>, LMUL m = rv_lmul_v<Reg>>
+inline VLType<T, m> rv_size() { return rv_setvlmax<T, m>(); }
 
 #if 0
 inline VLType_u8mf2 rv_vsetvl_u8mf2(std::size_t avl) { return rv_setvl<VLType_u8mf2>(avl); }
@@ -334,8 +415,10 @@ inline VLType_i32m1 rv_vsetvl_i32m1(std::size_t avl) { return rv_setvl<VLType_i3
 inline VLType_u8m4 rv_vsetvl_u8m4(std::size_t avl) { return rv_setvl<VLType_u8m4>(avl); }
 inline VLType_i32m4 rv_vsetvl_i32m4(std::size_t avl) { return rv_setvl<VLType_i32m4>(avl); }
 #else
-#define RV_SETVL_MORE(T,S,M) template <typename U = void>  /* not always legal, so template it */  \
-        inline VLType_##T rv_setvl_##T(std::size_t avl) { return rv_setvl<impl::tc::s::T, impl::tc::m::T>(avl); }
+#define RV_SETVL_MORE(T,S,M) template <typename U = void>  /* not universally viable, so template it */  \
+        inline VLType_##T rv_setvl_##T(std::size_t avl) { return rv_setvl<impl::tc::s::T, impl::tc::m::T>(avl); } \
+                             template <typename U = void>  /* not universally viable, so template it */  \
+        inline VLType_##T rv_setvlmax_##T() { return rv_setvlmax<impl::tc::s::T, impl::tc::m::T>(); }
 TC_XMACRO_SQUARE(RV_SETVL_MORE)
 #undef RV_SETVL_MORE
 #endif
@@ -383,7 +466,7 @@ TC_XMACRO(RV_DUP)
 // Nothing special here.
 //
 template <typename Reg>
-inline Reg rv_add(Reg x, Reg y, VLType<Reg> vl) { return __riscv_vadd(x, y, vl); }
+inline Reg rv_add(Reg x, Reg y, VLType<Reg> vl = rv_size<Reg>()) { return __riscv_vadd(x, y, vl); }
 
 
 // Instruction names change between signed and unsigned variants
@@ -401,14 +484,14 @@ namespace impl {
     };
 }  // namespace impl
 template <typename Reg>
-inline Reg rv_max(Reg x, Reg y, VLType<Reg> vl) {
+inline Reg rv_max(Reg x, Reg y, VLType<Reg> vl = rv_size<Reg>()) {
     return impl::rv_max<rv_meta<Reg>::is_integer, rv_meta<Reg>::is_signed>::f(x, y, vl);
 }
 
 // and on it goes...
 //
 template <typename Reg>
-inline rv_widen_reg_t<Reg> rv_wadd(Reg x, Reg y, VLType<Reg> vl) { return __riscv_vwadd_vv(x, y, vl); }
+inline rv_widen_reg_t<Reg> rv_wadd(Reg x, Reg y, VLType<Reg> vl = rv_size<Reg>()) { return __riscv_vwadd_vv(x, y, vl); }
 
 namespace impl {
     template <bool is_signed> struct rv_nshr {
@@ -419,7 +502,7 @@ namespace impl {
     };
 }  // namespace impl
 template <typename Reg>
-inline rv_narrow_reg_t<Reg> rv_nshr(Reg x, std::size_t i, VLType<Reg> vl) {
+inline rv_narrow_reg_t<Reg> rv_nshr(Reg x, std::size_t i, VLType<Reg> vl = rv_size<Reg>()) {
     return impl::rv_nshr<rv_meta<Reg>::is_signed>::f(x, i, vl);
 }
 
@@ -430,6 +513,10 @@ inline rv_narrow_reg_t<Reg> rv_nshr(Reg x, std::size_t i, VLType<Reg> vl) {
 #define RV_VLS(T,S,M) \
     inline impl::tc::v::T rv_vle(impl::tc::s::T const* p, VLType<impl::tc::s::T, impl::tc::m::T> vl) { return __riscv_vle##S##_v_##T(p, vl); }  \
     inline void rv_vse(impl::tc::s::T* p, impl::tc::v::T v, VLType<impl::tc::s::T, impl::tc::m::T> vl) { return __riscv_vse##S##_v_##T(p, v, vl); }
+// Adding defaults for vl here turns out to be a bad idea.  It's possible that
+// the type of the vector argument does not represent the size _intended_ to be
+// stored (eg., if there's no exact register type for the data being handled).
+// So this should remain explicit.
 TC_XMACRO(RV_VLS)
 #undef RV_VLS
 
@@ -507,21 +594,21 @@ inline vint64m4_t  rv_reinterpret_64(vint8m4_t v) { return __riscv_vreinterpret_
 template <typename T, typename U, std::enable_if_t<std::is_fundamental_v<T>, bool> = true>
 struct rv_reinterpret_impl;
 template <typename U>
-struct rv_reinterpret_impl<uint8_t, U> { static decltype(auto) f(U v) { return rv_reinterpret_8(rv_reinterpret_u(v)); } };
+struct rv_reinterpret_impl<uint8_t, U> { static auto f(U v) { return rv_reinterpret_8(rv_reinterpret_u(v)); } };
 template <typename U>
-struct rv_reinterpret_impl<int8_t, U> { static decltype(auto) f(U v) { return rv_reinterpret_8(rv_reinterpret_s(v)); } };
+struct rv_reinterpret_impl<int8_t, U> { static auto f(U v) { return rv_reinterpret_8(rv_reinterpret_s(v)); } };
 template <typename U>
-struct rv_reinterpret_impl<uint32_t, U> { static decltype(auto) f(U v) { return rv_reinterpret_32(rv_reinterpret_u(v)); } };
+struct rv_reinterpret_impl<uint32_t, U> { static auto f(U v) { return rv_reinterpret_32(rv_reinterpret_u(v)); } };
 template <typename U>
-struct rv_reinterpret_impl<int32_t, U> { static decltype(auto) f(U v) { return rv_reinterpret_32(rv_reinterpret_s(v)); } };
+struct rv_reinterpret_impl<int32_t, U> { static auto f(U v) { return rv_reinterpret_32(rv_reinterpret_s(v)); } };
 template <typename T, typename U>
-inline decltype(auto) rv_reinterpret(U v) { return rv_reinterpret_impl<T, U>::f(v); }
+inline auto rv_reinterpret(U v) { return rv_reinterpret_impl<T, U>::f(v); }
 
 
-template <typename T> inline decltype(auto)  rv_reinterpret_u8(T v) { return rv_reinterpret< uint8_t>(v); }
-template <typename T> inline decltype(auto)  rv_reinterpret_s8(T v) { return rv_reinterpret<  int8_t>(v); }
-template <typename T> inline decltype(auto) rv_reinterpret_u32(T v) { return rv_reinterpret<uint32_t>(v); }
-template <typename T> inline decltype(auto) rv_reinterpret_s32(T v) { return rv_reinterpret< int32_t>(v); }
+template <typename T> inline auto  rv_reinterpret_u8(T v) { return rv_reinterpret< uint8_t>(v); }
+template <typename T> inline auto  rv_reinterpret_s8(T v) { return rv_reinterpret<  int8_t>(v); }
+template <typename T> inline auto rv_reinterpret_u32(T v) { return rv_reinterpret<uint32_t>(v); }
+template <typename T> inline auto rv_reinterpret_s32(T v) { return rv_reinterpret< int32_t>(v); }
 
 
 // ext and trunc macros without getting hung up in the peripheral details of the types
@@ -691,6 +778,7 @@ inline impl::vuint64mf2_t rv_dup(uint64_t v, VLType_u64mf2 vl) {
     VLType<impl::vuint64mf2_t> vl_delegate(vl);
     return rv_dup(v, vl_delegate);
 }
+// no default for vl, below, because that's the same function as for vuint64m1_t.
 inline impl::vuint64mf2_t rv_add(impl::vuint64mf2_t x, impl::vuint64mf2_t y, VLType_u64mf2 vl) {
     VLType<impl::vuint64mf2_t> vl_delegate(vl);
     return rv_add(x, y, vl_delegate);
@@ -718,6 +806,38 @@ void simplecopy(uint8_t* out, uint8_t const* in, std::size_t count) {
         out += vl;
         count -= vl;
     }
+}
+
+void simplecopy_twoloop(uint8_t* out, uint8_t const* in, std::size_t count) {
+    constexpr rvv::LMUL vlmul = rvv::LMUL_m4;
+    auto vlmax = rvv::rv_setvlmax<decltype(*out), vlmul>();
+    while (count > vlmax) {
+        rvv::rv_vse(out, rvv::rv_vle(in, vlmax), vlmax);
+        in += vlmax;
+        out += vlmax;
+        count -= vlmax;
+    }
+    auto vl = rvv::rv_setvl<decltype(*out), vlmul>(count);
+    rvv::rv_vse(out, rvv::rv_vle(in, vl), vl);
+    in += vl;
+    out += vl;
+    count -= vl;
+}
+
+void simplecopy_twoloop(uint64_t* out, uint64_t const* in, std::size_t count) {
+    constexpr rvv::LMUL vlmul = rvv::LMUL_mf2;
+    auto vlmax = rvv::rv_setvlmax<decltype(*out), vlmul>();
+    while (count > vlmax) {
+        rvv::rv_vse(out, rvv::rv_vle(in, vlmax), vlmax);
+        in += vlmax;
+        out += vlmax;
+        count -= vlmax;
+    }
+    auto vl = rvv::rv_setvl<decltype(*out), vlmul>(count);
+    rvv::rv_vse(out, rvv::rv_vle(in, vl), vl);
+    in += vl;
+    out += vl;
+    count -= vl;
 }
 
 void use_u64mf2(uint64_t* out, uint64_t const* in, std::size_t count) {
