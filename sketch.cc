@@ -310,95 +310,124 @@ inline VLType<T, m> rv_setvl(std::size_t avl) {
     static_assert(rv_meta<T, m>::min_lanes >= 1, "can't set LMUL that low");
     if (int(m) < 0 && sizeof(T) << -int(m) > 8)
         if (avl > 65536) avl = 65536;  // to avoid overflow
+    size_t vl = 0;
     switch (sizeof(T)) {
     case 1:
         switch (m) {
-        case LMUL_mf8: return __riscv_vsetvl_e8mf8(avl);
-        case LMUL_mf4: return __riscv_vsetvl_e8mf4(avl);
-        case LMUL_mf2: return __riscv_vsetvl_e8mf2(avl);
-        case LMUL_m1:  return __riscv_vsetvl_e8m1 (avl);
-        case LMUL_m2:  return __riscv_vsetvl_e8m2 (avl);
-        case LMUL_m4:  return __riscv_vsetvl_e8m4 (avl);
-        case LMUL_m8:  return __riscv_vsetvl_e8m8 (avl);
+        case LMUL_mf8: vl = __riscv_vsetvl_e8mf8(avl);
+        case LMUL_mf4: vl = __riscv_vsetvl_e8mf4(avl);
+        case LMUL_mf2: vl = __riscv_vsetvl_e8mf2(avl);
+        case LMUL_m1:  vl = __riscv_vsetvl_e8m1 (avl);
+        case LMUL_m2:  vl = __riscv_vsetvl_e8m2 (avl);
+        case LMUL_m4:  vl = __riscv_vsetvl_e8m4 (avl);
+        case LMUL_m8:  vl = __riscv_vsetvl_e8m8 (avl);
         }
+        break;
     case 2:
         switch (m) {
-        case LMUL_mf8: return __riscv_vsetvl_e16mf4(avl * 2) / 2;
-        case LMUL_mf4: return __riscv_vsetvl_e16mf4(avl);
-        case LMUL_mf2: return __riscv_vsetvl_e16mf2(avl);
-        case LMUL_m1:  return __riscv_vsetvl_e16m1 (avl);
-        case LMUL_m2:  return __riscv_vsetvl_e16m2 (avl);
-        case LMUL_m4:  return __riscv_vsetvl_e16m4 (avl);
-        case LMUL_m8:  return __riscv_vsetvl_e16m8 (avl);
+        case LMUL_mf8: vl = __riscv_vsetvl_e16mf4(avl * 2) / 2;
+        case LMUL_mf4: vl = __riscv_vsetvl_e16mf4(avl);
+        case LMUL_mf2: vl = __riscv_vsetvl_e16mf2(avl);
+        case LMUL_m1:  vl = __riscv_vsetvl_e16m1 (avl);
+        case LMUL_m2:  vl = __riscv_vsetvl_e16m2 (avl);
+        case LMUL_m4:  vl = __riscv_vsetvl_e16m4 (avl);
+        case LMUL_m8:  vl = __riscv_vsetvl_e16m8 (avl);
         }
+        break;
     case 4:
         switch (m) {
-        case LMUL_mf8: return __riscv_vsetvl_e32mf2(avl * 4) / 4;
-        case LMUL_mf4: return __riscv_vsetvl_e32mf2(avl * 2) / 2;
-        case LMUL_mf2: return __riscv_vsetvl_e32mf2(avl);
-        case LMUL_m1:  return __riscv_vsetvl_e32m1 (avl);
-        case LMUL_m2:  return __riscv_vsetvl_e32m2 (avl);
-        case LMUL_m4:  return __riscv_vsetvl_e32m4 (avl);
-        case LMUL_m8:  return __riscv_vsetvl_e32m8 (avl);
+        case LMUL_mf8: vl = __riscv_vsetvl_e32mf2(avl * 4) / 4;
+        case LMUL_mf4: vl = __riscv_vsetvl_e32mf2(avl * 2) / 2;
+        case LMUL_mf2: vl = __riscv_vsetvl_e32mf2(avl);
+        case LMUL_m1:  vl = __riscv_vsetvl_e32m1 (avl);
+        case LMUL_m2:  vl = __riscv_vsetvl_e32m2 (avl);
+        case LMUL_m4:  vl = __riscv_vsetvl_e32m4 (avl);
+        case LMUL_m8:  vl = __riscv_vsetvl_e32m8 (avl);
         }
+        break;
     case 8:
         switch (m) {
-        case LMUL_mf8: return __riscv_vsetvl_e64m1 (avl * 8) / 8;
-        case LMUL_mf4: return __riscv_vsetvl_e64m1 (avl * 4) / 4;
-        case LMUL_mf2: return __riscv_vsetvl_e64m1 (avl * 2) / 2;
-        case LMUL_m1:  return __riscv_vsetvl_e64m1 (avl);
-        case LMUL_m2:  return __riscv_vsetvl_e64m2 (avl);
-        case LMUL_m4:  return __riscv_vsetvl_e64m4 (avl);
-        case LMUL_m8:  return __riscv_vsetvl_e64m8 (avl);
+        case LMUL_mf8: vl = __riscv_vsetvl_e64m1 (avl * 8) / 8;
+        case LMUL_mf4: vl = __riscv_vsetvl_e64m1 (avl * 4) / 4;
+        case LMUL_mf2: vl = __riscv_vsetvl_e64m1 (avl * 2) / 2;
+        case LMUL_m1:  vl = __riscv_vsetvl_e64m1 (avl);
+        case LMUL_m2:  vl = __riscv_vsetvl_e64m2 (avl);
+        case LMUL_m4:  vl = __riscv_vsetvl_e64m4 (avl);
+        case LMUL_m8:  vl = __riscv_vsetvl_e64m8 (avl);
         }
     }
+    // Make some assurances to the compiler about the range of results,
+    // allowing some dead code elimination.
+#if defined __riscv_v_fixed_vlen
+    constexpr size_t fixed_vl = (__riscv_v_fixed_vlen << (int(m) + 3) >> 3) / (8 * sizeof(T));
+    if (avl <= fixed_vl && vl != avl) __builtin_unreachable();
+    if (avl >= fixed_vl * 2 && vl != fixed_vl) __builtin_unreachable();
+#else
+    constexpr size_t min_vl = (__riscv_v_min_vlen << (int(m) + 3) >> 3) / (8 * sizeof(T));
+    if (avl <= min_vl && vl != avl) __builtin_unreachable();
+#endif
+    return vl;
 }
 
 template <typename T, LMUL m = LMUL_m1>
 inline VLType<T, m> rv_setvlmax() {
     static_assert(rv_meta<T, m>::min_lanes >= 1, "can't set LMUL that low");
+    size_t vl = 0;
     switch (sizeof(T)) {
     case 1:
         switch (m) {
-        case LMUL_mf8: return __riscv_vsetvlmax_e8mf8();
-        case LMUL_mf4: return __riscv_vsetvlmax_e8mf4();
-        case LMUL_mf2: return __riscv_vsetvlmax_e8mf2();
-        case LMUL_m1:  return __riscv_vsetvlmax_e8m1 ();
-        case LMUL_m2:  return __riscv_vsetvlmax_e8m2 ();
-        case LMUL_m4:  return __riscv_vsetvlmax_e8m4 ();
-        case LMUL_m8:  return __riscv_vsetvlmax_e8m8 ();
+        case LMUL_mf8: vl = __riscv_vsetvlmax_e8mf8();
+        case LMUL_mf4: vl = __riscv_vsetvlmax_e8mf4();
+        case LMUL_mf2: vl = __riscv_vsetvlmax_e8mf2();
+        case LMUL_m1:  vl = __riscv_vsetvlmax_e8m1 ();
+        case LMUL_m2:  vl = __riscv_vsetvlmax_e8m2 ();
+        case LMUL_m4:  vl = __riscv_vsetvlmax_e8m4 ();
+        case LMUL_m8:  vl = __riscv_vsetvlmax_e8m8 ();
         }
+        break;
     case 2:
         switch (m) {
-        case LMUL_mf8: return __riscv_vsetvlmax_e16mf4() / 2;
-        case LMUL_mf4: return __riscv_vsetvlmax_e16mf4();
-        case LMUL_mf2: return __riscv_vsetvlmax_e16mf2();
-        case LMUL_m1:  return __riscv_vsetvlmax_e16m1 ();
-        case LMUL_m2:  return __riscv_vsetvlmax_e16m2 ();
-        case LMUL_m4:  return __riscv_vsetvlmax_e16m4 ();
-        case LMUL_m8:  return __riscv_vsetvlmax_e16m8 ();
+        case LMUL_mf8: vl = __riscv_vsetvlmax_e16mf4() / 2;
+        case LMUL_mf4: vl = __riscv_vsetvlmax_e16mf4();
+        case LMUL_mf2: vl = __riscv_vsetvlmax_e16mf2();
+        case LMUL_m1:  vl = __riscv_vsetvlmax_e16m1 ();
+        case LMUL_m2:  vl = __riscv_vsetvlmax_e16m2 ();
+        case LMUL_m4:  vl = __riscv_vsetvlmax_e16m4 ();
+        case LMUL_m8:  vl = __riscv_vsetvlmax_e16m8 ();
         }
+        break;
     case 4:
         switch (m) {
-        case LMUL_mf8: return __riscv_vsetvlmax_e32mf2() / 4;
-        case LMUL_mf4: return __riscv_vsetvlmax_e32mf2() / 2;
-        case LMUL_mf2: return __riscv_vsetvlmax_e32mf2();
-        case LMUL_m1:  return __riscv_vsetvlmax_e32m1 ();
-        case LMUL_m2:  return __riscv_vsetvlmax_e32m2 ();
-        case LMUL_m4:  return __riscv_vsetvlmax_e32m4 ();
-        case LMUL_m8:  return __riscv_vsetvlmax_e32m8 ();
+        case LMUL_mf8: vl = __riscv_vsetvlmax_e32mf2() / 4;
+        case LMUL_mf4: vl = __riscv_vsetvlmax_e32mf2() / 2;
+        case LMUL_mf2: vl = __riscv_vsetvlmax_e32mf2();
+        case LMUL_m1:  vl = __riscv_vsetvlmax_e32m1 ();
+        case LMUL_m2:  vl = __riscv_vsetvlmax_e32m2 ();
+        case LMUL_m4:  vl = __riscv_vsetvlmax_e32m4 ();
+        case LMUL_m8:  vl = __riscv_vsetvlmax_e32m8 ();
         }
+        break;
     case 8:
         switch (m) {
-        case LMUL_mf8: return __riscv_vsetvlmax_e64m1 () / 8;
-        case LMUL_mf4: return __riscv_vsetvlmax_e64m1 () / 4;
-        case LMUL_mf2: return __riscv_vsetvlmax_e64m1 () / 2;
-        case LMUL_m1:  return __riscv_vsetvlmax_e64m1 ();
-        case LMUL_m2:  return __riscv_vsetvlmax_e64m2 ();
-        case LMUL_m4:  return __riscv_vsetvlmax_e64m4 ();
-        case LMUL_m8:  return __riscv_vsetvlmax_e64m8 ();
+        case LMUL_mf8: vl = __riscv_vsetvlmax_e64m1 () / 8;
+        case LMUL_mf4: vl = __riscv_vsetvlmax_e64m1 () / 4;
+        case LMUL_mf2: vl = __riscv_vsetvlmax_e64m1 () / 2;
+        case LMUL_m1:  vl = __riscv_vsetvlmax_e64m1 ();
+        case LMUL_m2:  vl = __riscv_vsetvlmax_e64m2 ();
+        case LMUL_m4:  vl = __riscv_vsetvlmax_e64m4 ();
+        case LMUL_m8:  vl = __riscv_vsetvlmax_e64m8 ();
         }
     }
+    // Make some assurances to the compiler about the range of results,
+    // allowing some dead code elimination.
+#if defined __riscv_v_fixed_vlen
+    constexpr size_t fixed_vl = (__riscv_v_fixed_vlen << (int(m) + 3) >> 3) / (8 * sizeof(T));
+    if (vl != fixed_vl) __builtin_unreachable();
+#else
+    constexpr size_t min_vl = (__riscv_v_min_vlen << (int(m) + 3) >> 3) / (8 * sizeof(T));
+    if (vl < min_vl) __builtin_unreachable();
+#endif
+    return vl;
 }
 
 template <typename Reg, typename T = rv_lane_t<Reg>, LMUL m = rv_lmul_v<Reg>>
