@@ -277,6 +277,7 @@ template <typename T> using narrow_t = typename impl::narrow<std::remove_referen
 template <typename T, LMUL m = LMUL_m1> using rv_reg_t = typename rv_meta<T, m>::reg_type;
 template <typename T, LMUL m = LMUL_m1> using rv_widen_reg_t = typename widen_t<rv_meta<T, m> >::reg_type;
 template <typename T, LMUL m = LMUL_m1> using rv_narrow_reg_t = typename narrow_t<rv_meta<T, m> >::reg_type;
+template <typename T, LMUL m = LMUL_m1> using rv_mask_t = typename rv_meta<T, m>::mask_type;
 
 // Encoding the data type and LMUL in the type of the VL argument makes more
 // type deduction feasible in places where there's no register input.
@@ -306,6 +307,7 @@ TC_XMACRO_SQUARE(RV_VLTYPE)
 
 
 template <typename T, LMUL m = LMUL_m1>
+__attribute__((const))
 inline VLType<T, m> rv_setvl(std::size_t avl) {
     static_assert(rv_meta<T, m>::min_lanes >= 1, "can't set LMUL that low");
     if (int(m) < 0 && sizeof(T) << -int(m) > 8)
@@ -370,6 +372,7 @@ inline VLType<T, m> rv_setvl(std::size_t avl) {
 }
 
 template <typename T, LMUL m = LMUL_m1>
+__attribute__((const))
 inline VLType<T, m> rv_setvlmax() {
     static_assert(rv_meta<T, m>::min_lanes >= 1, "can't set LMUL that low");
     size_t vl = 0;
@@ -453,103 +456,6 @@ TC_XMACRO_SQUARE(RV_SETVL_MORE)
 #endif
 
 
-// Operations like vmv.vx and vle cannot deduce the output type from
-// any of the arguments, unless it's coded in the vl type.
-//
-#define __riscv_vmv_v_x_f16mf4 __riscv_vfmv_v_f_f16mf4
-#define __riscv_vmv_v_x_f16mf2 __riscv_vfmv_v_f_f16mf2
-#define __riscv_vmv_v_x_f16m1  __riscv_vfmv_v_f_f16m1
-#define __riscv_vmv_v_x_f16m2  __riscv_vfmv_v_f_f16m2
-#define __riscv_vmv_v_x_f16m4  __riscv_vfmv_v_f_f16m4
-#define __riscv_vmv_v_x_f16m8  __riscv_vfmv_v_f_f16m8
-#define __riscv_vmv_v_x_f32mf2 __riscv_vfmv_v_f_f32mf2
-#define __riscv_vmv_v_x_f32m1  __riscv_vfmv_v_f_f32m1
-#define __riscv_vmv_v_x_f32m2  __riscv_vfmv_v_f_f32m2
-#define __riscv_vmv_v_x_f32m4  __riscv_vfmv_v_f_f32m4
-#define __riscv_vmv_v_x_f32m8  __riscv_vfmv_v_f_f32m8
-#define __riscv_vmv_v_x_f64m1  __riscv_vfmv_v_f_f64m1
-#define __riscv_vmv_v_x_f64m2  __riscv_vfmv_v_f_f64m2
-#define __riscv_vmv_v_x_f64m4  __riscv_vfmv_v_f_f64m4
-#define __riscv_vmv_v_x_f64m8  __riscv_vfmv_v_f_f64m8
-#define RV_DUP(T,S,M) \
-        inline impl::tc::v::T rv_dup(impl::tc::s::T v, VLType_##T vl) { return __riscv_vmv_v_x_##T(v, vl); }
-TC_XMACRO(RV_DUP)
-#undef RV_DUP
-#undef __riscv_vmv_v_x_f16mf4
-#undef __riscv_vmv_v_x_f16mf2
-#undef __riscv_vmv_v_x_f16m1
-#undef __riscv_vmv_v_x_f16m2
-#undef __riscv_vmv_v_x_f16m4
-#undef __riscv_vmv_v_x_f16m8
-#undef __riscv_vmv_v_x_f32mf2
-#undef __riscv_vmv_v_x_f32m1
-#undef __riscv_vmv_v_x_f32m2
-#undef __riscv_vmv_v_x_f32m4
-#undef __riscv_vmv_v_x_f32m8
-#undef __riscv_vmv_v_x_f64m1
-#undef __riscv_vmv_v_x_f64m2
-#undef __riscv_vmv_v_x_f64m4
-#undef __riscv_vmv_v_x_f64m8
-
-
-// Nothing special here.
-//
-template <typename Reg>
-inline Reg rv_add(Reg x, Reg y, VLType<Reg> vl = rv_size<Reg>()) { return __riscv_vadd(x, y, vl); }
-
-
-// Instruction names change between signed and unsigned variants
-// by necessity in assembly, but there's no such necessity in C.
-//
-namespace impl {
-    template <bool is_integer, bool is_signed> struct rv_max {
-        template <typename Reg> static inline Reg f(Reg x, Reg y, std::size_t vl) { return __riscv_vmax(x, y, vl); }
-    };
-    template <> struct rv_max<false, false> {
-        template <typename Reg> static inline Reg f(Reg x, Reg y, std::size_t vl) { return __riscv_vfmax(x, y, vl); }
-    };
-    template <> struct rv_max<true, false> {
-        template <typename Reg> static inline Reg f(Reg x, Reg y, std::size_t vl) { return __riscv_vmaxu(x, y, vl); }
-    };
-}  // namespace impl
-template <typename Reg>
-inline Reg rv_max(Reg x, Reg y, VLType<Reg> vl = rv_size<Reg>()) {
-    return impl::rv_max<rv_meta<Reg>::is_integer, rv_meta<Reg>::is_signed>::f(x, y, vl);
-}
-
-// and on it goes...
-//
-template <typename Reg>
-inline rv_widen_reg_t<Reg> rv_wadd(Reg x, Reg y, VLType<Reg> vl = rv_size<Reg>()) { return __riscv_vwadd_vv(x, y, vl); }
-
-namespace impl {
-    template <bool is_signed> struct rv_nshr {
-        template <typename Reg> static inline rv_narrow_reg_t<Reg> f(Reg x, std::size_t i, std::size_t vl) { return __riscv_vnsra(x, i, vl); }
-    };
-    template <> struct rv_nshr<false> {
-        template <typename Reg> static inline rv_narrow_reg_t<Reg> f(Reg x, std::size_t i, std::size_t vl) { return __riscv_vnsrl(x, i, vl); }
-    };
-}  // namespace impl
-template <typename Reg>
-inline rv_narrow_reg_t<Reg> rv_nshr(Reg x, std::size_t i, VLType<Reg> vl = rv_size<Reg>()) {
-    return impl::rv_nshr<rv_meta<Reg>::is_signed>::f(x, i, vl);
-}
-
-
-// __riscv_vle* and __riscv_vse* all include the specific bitwidth in
-// the name, which undermines the utility of function overloading
-//
-#define RV_VLS(T,S,M) \
-    inline impl::tc::v::T rv_vle(impl::tc::s::T const* p, VLType<impl::tc::s::T, impl::tc::m::T> vl) { return __riscv_vle##S##_v_##T(p, vl); }  \
-    inline void rv_vse(impl::tc::s::T* p, impl::tc::v::T v, VLType<impl::tc::s::T, impl::tc::m::T> vl) { return __riscv_vse##S##_v_##T(p, v, vl); }
-// Adding defaults for vl here turns out to be a bad idea.  It's possible that
-// the type of the vector argument does not represent the size _intended_ to be
-// stored (eg., if there's no exact register type for the data being handled).
-// So this should remain explicit.
-TC_XMACRO(RV_VLS)
-#undef RV_VLS
-
-
 // __riscv_vreinterpret_* overloads are not a complete set, and the names
 // don't let you change things without getting in a muddle over other factors
 //
@@ -620,24 +526,193 @@ inline vint64m4_t  rv_reinterpret_64(vint8m4_t v) { return __riscv_vreinterpret_
 // When you use typedefs to make your LMUL configurable it becomes
 // painful to cast to specific types while staying agnostic to LMUL.
 //
-template <typename T, typename U, std::enable_if_t<std::is_fundamental_v<T>, bool> = true>
-struct rv_reinterpret_impl;
-template <typename U>
-struct rv_reinterpret_impl<uint8_t, U> { static auto f(U v) { return rv_reinterpret_8(rv_reinterpret_u(v)); } };
-template <typename U>
-struct rv_reinterpret_impl<int8_t, U> { static auto f(U v) { return rv_reinterpret_8(rv_reinterpret_s(v)); } };
-template <typename U>
-struct rv_reinterpret_impl<uint32_t, U> { static auto f(U v) { return rv_reinterpret_32(rv_reinterpret_u(v)); } };
-template <typename U>
-struct rv_reinterpret_impl<int32_t, U> { static auto f(U v) { return rv_reinterpret_32(rv_reinterpret_s(v)); } };
-template <typename T, typename U>
-inline auto rv_reinterpret(U v) { return rv_reinterpret_impl<T, U>::f(v); }
+namespace impl {
+    template <typename T, typename U, std::enable_if_t<std::is_fundamental_v<T>, bool> = true>
+    struct rv_reinterpret;
+    template <typename U>
+    struct rv_reinterpret<uint8_t, U> { static auto f(U v) { return rv_reinterpret_8(rv_reinterpret_u(v)); } };
+    template <typename U>
+    struct rv_reinterpret<int8_t, U> { static auto f(U v) { return rv_reinterpret_8(rv_reinterpret_s(v)); } };
+    template <typename U>
+    struct rv_reinterpret<uint32_t, U> { static auto f(U v) { return rv_reinterpret_32(rv_reinterpret_u(v)); } };
+    template <typename U>
+    struct rv_reinterpret<int32_t, U> { static auto f(U v) { return rv_reinterpret_32(rv_reinterpret_s(v)); } };
+    template <typename T, typename U>
+    struct rv_reinterpret_b;
+    template <typename U>
+    struct rv_reinterpret_b<vbool1_t, U> { static auto f(U v) { return __riscv_vreinterpret_b1(v); } };
+    template <typename U>
+    struct rv_reinterpret_b<vbool2_t, U> { static auto f(U v) { return __riscv_vreinterpret_b2(v); } };
+    template <typename U>
+    struct rv_reinterpret_b<vbool4_t, U> { static auto f(U v) { return __riscv_vreinterpret_b4(v); } };
+    template <typename U>
+    struct rv_reinterpret_b<vbool8_t, U> { static auto f(U v) { return __riscv_vreinterpret_b8(v); } };
+    template <typename U>
+    struct rv_reinterpret_b<vbool16_t, U> { static auto f(U v) { return __riscv_vreinterpret_b16(v); } };
+    template <typename U>
+    struct rv_reinterpret_b<vbool32_t, U> { static auto f(U v) { return __riscv_vreinterpret_b32(v); } };
+    template <typename U>
+    struct rv_reinterpret_b<vbool64_t, U> { static auto f(U v) { return __riscv_vreinterpret_b64(v); } };
+}  // namespace impl
 
+template <typename T, typename U>
+inline auto rv_reinterpret(U v) { return impl::rv_reinterpret<T, U>::f(v); }
+
+template <typename T, LMUL m = LMUL_m1, typename U>
+inline rv_mask_t<T, m> rv_reinterpret_b(U v) { return impl::rv_reinterpret_b<rv_mask_t<T, m>, U>::f(v); }
 
 template <typename T> inline auto  rv_reinterpret_u8(T v) { return rv_reinterpret< uint8_t>(v); }
 template <typename T> inline auto  rv_reinterpret_s8(T v) { return rv_reinterpret<  int8_t>(v); }
 template <typename T> inline auto rv_reinterpret_u32(T v) { return rv_reinterpret<uint32_t>(v); }
 template <typename T> inline auto rv_reinterpret_s32(T v) { return rv_reinterpret< int32_t>(v); }
+
+// Operations like vmv.vx and vle cannot deduce the output type from
+// any of the arguments, unless it's coded in the vl type.
+//
+#define __riscv_vmv_v_x_f16mf4 __riscv_vfmv_v_f_f16mf4
+#define __riscv_vmv_v_x_f16mf2 __riscv_vfmv_v_f_f16mf2
+#define __riscv_vmv_v_x_f16m1  __riscv_vfmv_v_f_f16m1
+#define __riscv_vmv_v_x_f16m2  __riscv_vfmv_v_f_f16m2
+#define __riscv_vmv_v_x_f16m4  __riscv_vfmv_v_f_f16m4
+#define __riscv_vmv_v_x_f16m8  __riscv_vfmv_v_f_f16m8
+#define __riscv_vmv_v_x_f32mf2 __riscv_vfmv_v_f_f32mf2
+#define __riscv_vmv_v_x_f32m1  __riscv_vfmv_v_f_f32m1
+#define __riscv_vmv_v_x_f32m2  __riscv_vfmv_v_f_f32m2
+#define __riscv_vmv_v_x_f32m4  __riscv_vfmv_v_f_f32m4
+#define __riscv_vmv_v_x_f32m8  __riscv_vfmv_v_f_f32m8
+#define __riscv_vmv_v_x_f64m1  __riscv_vfmv_v_f_f64m1
+#define __riscv_vmv_v_x_f64m2  __riscv_vfmv_v_f_f64m2
+#define __riscv_vmv_v_x_f64m4  __riscv_vfmv_v_f_f64m4
+#define __riscv_vmv_v_x_f64m8  __riscv_vfmv_v_f_f64m8
+#define RV_DUP(T,S,M) \
+        inline impl::tc::v::T rv_dup(impl::tc::s::T v, VLType_##T vl) { return __riscv_vmv_v_x_##T(v, vl); }
+TC_XMACRO(RV_DUP)
+#undef RV_DUP
+#undef __riscv_vmv_v_x_f16mf4
+#undef __riscv_vmv_v_x_f16mf2
+#undef __riscv_vmv_v_x_f16m1
+#undef __riscv_vmv_v_x_f16m2
+#undef __riscv_vmv_v_x_f16m4
+#undef __riscv_vmv_v_x_f16m8
+#undef __riscv_vmv_v_x_f32mf2
+#undef __riscv_vmv_v_x_f32m1
+#undef __riscv_vmv_v_x_f32m2
+#undef __riscv_vmv_v_x_f32m4
+#undef __riscv_vmv_v_x_f32m8
+#undef __riscv_vmv_v_x_f64m1
+#undef __riscv_vmv_v_x_f64m2
+#undef __riscv_vmv_v_x_f64m4
+#undef __riscv_vmv_v_x_f64m8
+
+// Nothing special here.
+//
+template <typename Reg>
+inline Reg rv_add(Reg x, Reg y, VLType<Reg> vl = rv_size<Reg>()) { return __riscv_vadd(x, y, vl); }
+
+
+// How about this?  Would this be fun?
+//
+template <typename Reg> struct RV_TUMU {
+    Reg const& reg_;
+    rv_mask_t<Reg> const& mask_;
+    VLType<Reg> vl_;
+    RV_TUMU(Reg const& reg, rv_mask_t<Reg> const& mask, VLType<Reg> vl)
+        : reg_(reg), mask_(mask), vl_(vl) {}
+};
+template <typename Reg> struct RV_TUM {
+    Reg const& reg_;
+    rv_mask_t<Reg> const& mask_;
+    VLType<Reg> vl_;
+    RV_TUM(Reg const& reg, rv_mask_t<Reg> const& mask, VLType<Reg> vl)
+        : reg_(reg), mask_(mask), vl_(vl) {}
+};
+template <typename Reg> struct RV_TU {
+    Reg const& reg_;
+    VLType<Reg> vl_;
+    RV_TU(Reg const& reg, VLType<Reg> vl)
+        : reg_(reg), vl_(vl) {}
+};
+template <typename Reg> struct RV_MU {
+    Reg const& reg_;
+    rv_mask_t<Reg> const& mask_;
+    VLType<Reg> vl_;
+    RV_MU(Reg const& reg, rv_mask_t<Reg> const& mask, VLType<Reg> vl = rv_size<Reg>())
+        : reg_(reg), mask_(mask), vl_(vl) {}
+};
+template <typename Reg> struct RV_M {
+    Reg const& reg_;
+    rv_mask_t<Reg> const& mask_;
+    VLType<Reg> vl_;
+    RV_M(Reg const& reg, rv_mask_t<Reg> const& mask, VLType<Reg> vl = rv_size<Reg>())
+        : reg_(reg), mask_(mask), vl_(vl) {}
+};
+
+template <typename Reg, typename T>
+inline Reg rv_add(RV_TUMU<Reg> wb, Reg x, T y) { return __riscv_vadd_tumu(wb.mask_, wb.reg_, x, y, wb.vl_); }
+
+template <typename Reg, typename T>
+inline Reg rv_add(RV_TUM<Reg> wb, Reg x, T y) { return __riscv_vadd_tum(wb.mask_, wb.reg_, x, y, wb.vl_); }
+
+template <typename Reg, typename T>
+inline Reg rv_add(RV_TU<Reg> wb, Reg x, T y) { return __riscv_vadd_tu(wb.reg_, x, y, wb.vl_); }
+
+template <typename Reg, typename T>
+inline Reg rv_add(RV_MU<Reg> wb, Reg x, T y) { return __riscv_vadd_mu(wb.mask_, wb.reg_, x, y, wb.vl_); }
+
+template <typename Reg, typename T>
+inline Reg rv_add(RV_M<Reg> wb, Reg x, T y) { return __riscv_vadd_m(wb.mask_, x, y, wb.vl_); }
+
+
+// Instruction names change between signed and unsigned variants
+// by necessity in assembly, but there's no such necessity in C.
+//
+namespace impl {
+    template <bool is_integer, bool is_signed> struct rv_max {
+        template <typename Reg> static inline Reg f(Reg x, Reg y, std::size_t vl) { return __riscv_vmax(x, y, vl); }
+    };
+    template <> struct rv_max<false, false> {
+        template <typename Reg> static inline Reg f(Reg x, Reg y, std::size_t vl) { return __riscv_vfmax(x, y, vl); }
+    };
+    template <> struct rv_max<true, false> {
+        template <typename Reg> static inline Reg f(Reg x, Reg y, std::size_t vl) { return __riscv_vmaxu(x, y, vl); }
+    };
+}  // namespace impl
+template <typename Reg>
+inline Reg rv_max(Reg x, Reg y, VLType<Reg> vl = rv_size<Reg>()) {
+    return impl::rv_max<rv_meta<Reg>::is_integer, rv_meta<Reg>::is_signed>::f(x, y, vl);
+}
+
+// and on it goes...
+//
+template <typename Reg>
+inline rv_widen_reg_t<Reg> rv_wadd(Reg x, Reg y, VLType<Reg> vl = rv_size<Reg>()) { return __riscv_vwadd_vv(x, y, vl); }
+
+namespace impl {
+    template <bool is_signed> struct rv_nshr {
+        template <typename Reg> static inline rv_narrow_reg_t<Reg> f(Reg x, std::size_t i, std::size_t vl) { return __riscv_vnsra(x, i, vl); }
+    };
+    template <> struct rv_nshr<false> {
+        template <typename Reg> static inline rv_narrow_reg_t<Reg> f(Reg x, std::size_t i, std::size_t vl) { return __riscv_vnsrl(x, i, vl); }
+    };
+}  // namespace impl
+template <typename Reg>
+inline rv_narrow_reg_t<Reg> rv_nshr(Reg x, std::size_t i, VLType<Reg> vl = rv_size<Reg>()) {
+    return impl::rv_nshr<rv_meta<Reg>::is_signed>::f(x, i, vl);
+}
+
+
+// __riscv_vle* and __riscv_vse* all include the specific bitwidth in
+// the name, which undermines the utility of function overloading
+//
+#define RV_VLS(T,S,M) \
+    inline impl::tc::v::T rv_vle(impl::tc::s::T const* p, VLType<impl::tc::s::T, impl::tc::m::T> vl) { return __riscv_vle##S##_v_##T(p, vl); }  \
+    inline void rv_vse(impl::tc::s::T* p, impl::tc::v::T v, VLType<impl::tc::s::T, impl::tc::m::T> vl) { return __riscv_vse##S##_v_##T(p, v, vl); }
+// Adding defaults for vl here turns out to be a bad idea.  It's possible that
+// the type of the vector argument does not represent the size _intended_ to be
+// stored (eg., if there's no exact register type for the data being handled).
+// So this should remain explicit.
+TC_XMACRO(RV_VLS)
+#undef RV_VLS
 
 
 // ext and trunc macros without getting hung up in the peripheral details of the types
@@ -821,6 +896,24 @@ inline void rv_vse(uint64_t* p, impl::vuint64mf2_t v, VLType_u64mf2 vl) {
     return rv_vse(p, v, vl_delegate);
 }
 
+
+// Getting a bit not-intrinsic-y, here, but so handy!
+//
+template <typename T, LMUL m = LMUL_m1>
+rv_mask_t<T, m> rv_mask64(uint64_t bits) {
+    return rv_reinterpret_b<T, m>(rv_dup(bits, rv_setvlmax_u64m1()));
+}
+template <typename T, LMUL m = LMUL_m1>
+rv_mask_t<T, m> rv_mask8(uint8_t bits) {
+    return rv_reinterpret_b<T, m>(rv_dup(bits, rv_setvlmax_u8m1()));
+}
+
+#define RV_MKMASK(T,S,M) \
+        inline impl::tc::b::T rv_mask64_##T(uint64_t mask) { return rv_mask64<impl::tc::s::T, impl::tc::m::T>(mask); } \
+        inline impl::tc::b::T rv_mask8_##T(uint8_t mask) { return rv_mask8<impl::tc::s::T, impl::tc::m::T>(mask); }
+TC_XMACRO(RV_MKMASK)
+#undef RV_MKMASK
+
 };  // namespace rvv
 
 // example usage:
@@ -880,6 +973,17 @@ void use_u64mf2(uint64_t* out, uint64_t const* in, std::size_t count) {
         out += vl;
         count -= vl;
     }
+}
+
+vuint8m4_t masks(std::size_t z) {
+    auto vl = rvv::rv_setvl_u8m4(8);
+    auto a = rvv::rv_dup(z, vl);
+    auto b = rvv::rv_dup(3, rvv::rv_setvlmax_u8m4());
+    vbool2_t mask = rvv::rv_mask8_u8m4(0x55);
+    b = rvv::rv_add(rvv::RV_TU(b, vl), b, a);
+    b = rvv::rv_add(rvv::RV_TUMU(b, mask, vl + 2), b, 8);
+    b = rvv::rv_add(rvv::RV_MU(b, mask), b, a);
+    return b;
 }
 
 
