@@ -279,15 +279,22 @@ template <typename T, LMUL m = LMUL_m1> using rv_widen_reg_t = typename widen_t<
 template <typename T, LMUL m = LMUL_m1> using rv_narrow_reg_t = typename narrow_t<rv_meta<T, m> >::reg_type;
 template <typename T, LMUL m = LMUL_m1> using rv_mask_t = typename rv_meta<T, m>::mask_type;
 
+// TODO: a more structured family of type translations.  Separately editing:
+//  * sign (float probably also fits on this axis) (get/set)
+//  * lane bit width (get/set/inc/dec)
+//  * lane type (=sign+bitwidth) (get/set)
+//  * LMUL  (get/set/inc/dec)
+//
+
 // Encoding the data type and LMUL in the type of the VL argument makes more
 // type deduction feasible in places where there's no register input.
 //
 namespace impl {
     template <typename T>
     struct VLType {
-        std::size_t vl_;
-        VLType(std::size_t x) : vl_(x) {}
-        operator std::size_t() const { return vl_; }
+        const std::size_t vl_;
+        constexpr VLType(std::size_t x) : vl_(x) {}
+        constexpr operator std::size_t() const { return vl_; }
 
         using lane_type = typename T::lane_type;
         static constexpr LMUL lmul = T::lmul;
@@ -306,10 +313,18 @@ TC_XMACRO_SQUARE(RV_VLTYPE)
 #undef RV_VLTYPE
 
 
+// Not zero but the guaranteed-minimum number of lanes available -- as a constexpr.
+template <typename T, LMUL m = LMUL_m1>
+inline constexpr auto rv_setvlmin() {
+    static_assert(rv_meta<T, m>::min_lanes >= 1, "can't set LMUL that low");
+    constexpr size_t min_vl = (__riscv_v_min_vlen << (int(m) + 3) >> 3) / (8 * sizeof(T));
+    return VLType<T, m>(min_vl);
+}
+
 template <typename T, LMUL m = LMUL_m1>
 __attribute__((const))
 inline VLType<T, m> rv_setvl(std::size_t avl) {
-    static_assert(rv_meta<T, m>::min_lanes >= 1, "can't set LMUL that low");
+    constexpr size_t min_vl = rv_setvlmin<T, m>();
     if (int(m) < 0 && sizeof(T) << -int(m) > 8)
         if (avl > 65536) avl = 65536;  // to avoid overflow
     size_t vl = 0;
@@ -360,13 +375,14 @@ inline VLType<T, m> rv_setvl(std::size_t avl) {
     }
     // Make some assurances to the compiler about the range of results,
     // allowing some dead code elimination.
-#if defined __riscv_v_fixed_vlen
-    constexpr size_t fixed_vl = (__riscv_v_fixed_vlen << (int(m) + 3) >> 3) / (8 * sizeof(T));
-    if (avl <= fixed_vl && vl != avl) __builtin_unreachable();
-    if (avl >= fixed_vl * 2 && vl != fixed_vl) __builtin_unreachable();
-#else
-    constexpr size_t min_vl = (__riscv_v_min_vlen << (int(m) + 3) >> 3) / (8 * sizeof(T));
+    if (__builtin_constant_p(avl <= min_vl) && avl <= min_vl) {
+        assert(vl == avl);
+        return avl;
+    }
     if (avl <= min_vl && vl != avl) __builtin_unreachable();
+#if defined __riscv_v_fixed_vlen
+    static_assert(__riscv_v_fixed_vlen == __riscv_v_min_vlen, "fixed and min vlen must be the same if fixed is defined");
+    if (avl >= min_vl * 2 && vl != min_vl) __builtin_unreachable();
 #endif
     return vl;
 }
@@ -374,7 +390,7 @@ inline VLType<T, m> rv_setvl(std::size_t avl) {
 template <typename T, LMUL m = LMUL_m1>
 __attribute__((const))
 inline VLType<T, m> rv_setvlmax() {
-    static_assert(rv_meta<T, m>::min_lanes >= 1, "can't set LMUL that low");
+    constexpr size_t min_vl = rv_setvlmin<T, m>();
     size_t vl = 0;
     switch (sizeof(T)) {
     case 1:
@@ -423,12 +439,12 @@ inline VLType<T, m> rv_setvlmax() {
     }
     // Make some assurances to the compiler about the range of results,
     // allowing some dead code elimination.
-#if defined __riscv_v_fixed_vlen
-    constexpr size_t fixed_vl = (__riscv_v_fixed_vlen << (int(m) + 3) >> 3) / (8 * sizeof(T));
-    if (vl != fixed_vl) __builtin_unreachable();
-#else
-    constexpr size_t min_vl = (__riscv_v_min_vlen << (int(m) + 3) >> 3) / (8 * sizeof(T));
     if (vl < min_vl) __builtin_unreachable();
+
+#if defined __riscv_v_fixed_vlen
+    static_assert(__riscv_v_fixed_vlen == __riscv_v_min_vlen, "fixed and min vlen must be the same if fixed is defined");
+    assert(vl == min_vl);
+    return min_vl;
 #endif
     return vl;
 }
@@ -845,8 +861,15 @@ struct rv_lmul_impl<LMUL_m8, m_in> {
 
 template <LMUL m_out, typename Reg, typename T = rv_lane_t<Reg>, LMUL m_in = rv_lmul_v<Reg>>
 rv_reg_t<T, m_out> rv_lmul_ext(Reg v) { return rv_lmul_impl<m_out, m_in>::template e<T>(v); }
+#ifdef NDEBUG
 template <LMUL m_out, typename Reg, typename T = rv_lane_t<Reg>, LMUL m_in = rv_lmul_v<Reg>>
 rv_reg_t<T, m_out> rv_lmul_trunc(Reg v) { return rv_lmul_impl<m_out, m_in>::template t<T>(v); }
+#else
+// Use truncated VL and an arithmetic operation to force tail-policy overwrite of the discarded part of the data.
+// TODO: check that the optimiser isn't undermining this.
+template <LMUL m_out, typename Reg, typename T = rv_lane_t<Reg>, LMUL m_in = rv_lmul_v<Reg>>
+rv_reg_t<T, m_out> rv_lmul_trunc(Reg v) { return rv_lmul_impl<m_out, m_in>::template t<T>(rv_add(v, 0, rv_size<rv_reg_t<T, m_out>>())); }
+#endif
 
 // absolute versions
 //
@@ -874,6 +897,20 @@ rv_reg_t<T, m> rv_lmul_trunc2(Reg v) { return rv_lmul_trunc<m>(v); }
 template <typename Reg, typename T = rv_lane_t<Reg>, LMUL m = impl::widen_lmul(rv_lmul_v<Reg>)>
 rv_reg_t<T, m> rv_lmul_ext2(Reg v) { return rv_lmul_ext<m>(v); }
 
+
+#if 0 // something like https://godbolt.org/z/9533x1x6W but I'm getting bored of this!
+#define RVV_CTT(x) (__builtin_constant_p(x) && (x))
+template <typename Reg, typename VL = VLType<Reg>>
+Reg rv_lse(VL::lane_type const* ptr, std::size_t stride, VL vl = rv_size<Reg>()) {
+    constexpr LMUL lmul = VL::lmul;
+    if (RVV_CTT(vl < rv_setvlmin<rv_meta<VL::lane_type, LMUL_mf8>>()) {
+        return rv_lmul_ext<lmul>(__riscv_vlse...(ptr, stride, vl));
+    if (RVV_CTT(vl < rv_setvlmin<rv_meta<VL::lane_type, LMUL_mf4>>()) {
+        return rv_lmul_ext<lmul>(__riscv_vlse...(ptr, stride, vl));
+    }
+    return __riscv_vlse...(ptr, stride, vl);
+}
+#endif
 
 // I can see in the spec why types like this don't exist, but they're still
 // feasible and useful.
